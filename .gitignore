@@ -1,0 +1,22 @@
+# Binaries
+miraishi
+
+# Config
+config.json
+
+# Docker
+.dockerignore
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local build artifacts
+static/*.min.js
+static/*.min.css

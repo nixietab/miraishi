@@ -1,0 +1,14 @@
+localhost {
+	# basicauth {
+	# 	<username> <hash>
+	# }
+
+	reverse_proxy website:8080
+
+	@rendezvous {
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+
+	reverse_proxy @rendezvous rendezvous:4000
+}

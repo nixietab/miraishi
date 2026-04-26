@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="la">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Miraishi</title>
+    <meta name="description" content="Simplex communicatio scrinii inter pares" />
+    <meta name="application-name" content="Miraishi" />
+    <meta name="language" content="la" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="./styles.css" rel="stylesheet" />
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <script type="text/javascript" src="./miraishi.js"></script>
+</head>
+
+<body>
+    <noscript>
+        <div class="popup">
+            <h1>JavaScript non sustinetur aut non sinitur.</h1>
+            <p>
+                Miraishi auxilio JavaScript eget, sed navigatrum tuum id non
+                praebet. Utere navigatro quod JavaScript sustinet et fac ut
+                sinatur.
+            </p>
+        </div>
+    </noscript>
+    <div id="access-denied" class="popup hidden">
+        <h1>Aditum ad scrinium tuum negavisti.</h1>
+        <p>
+            Miraishi aditu ad scrinium tuum eget ut id communicet, sed
+            aditum negavisti. Conare paginam reficere et aditum praebe
+            cum navigatrum te rogabit. Si navigatrum non rogat,
+            inspice occasus navigatri tui.
+        </p>
+    </div>
+    <div id="screensharing-not-supported" class="popup hidden">
+        <h1>Communicatio scrinii non sustinetur aut non sinitur.</h1>
+        <p>
+            Miraishi scrinium tuum communicare non potest, quia navigatrum tuum id non
+            sustinet, aut non sinitur. Utere navigatro quod communicationem
+            scrinii sustinet et fac ut sinatur.
+        </p>
+    </div>
+    <div id="websockets-not-supported" class="popup hidden">
+        <h1>WebSocket non sustinetur aut non sinitur.</h1>
+        <p>
+            Miraishi auxilio WebSocket eget, sed navigatrum tuum id non
+            praebet. Utere navigatro quod WebSocket sustinet et fac ut
+            sinatur.
+        </p>
+    </div>
+    <div id="webrtc-not-supported" class="popup hidden">
+        <h1>WebRTC non sustinetur aut non sinitur.</h1>
+        <p>
+            Miraishi auxilio WebRTC eget, sed navigatrum tuum id non praebet.
+            Utere navigatro quod WebRTC sustinet et fac ut
+            sinatur.
+        </p>
+    </div>
+    <div id="mediastream-not-supported" class="popup hidden">
+        <h1>MediaStream non sustinetur aut non sinitur.</h1>
+        <p>
+            Miraishi auxilio MediaStream eget, sed navigatrum tuum id non
+            praebet. Utere navigatro quod MediaStream sustinet et fac ut
+            sinatur.
+        </p>
+    </div>
+    <div id="websocket-connect-failed" class="popup hidden">
+        <h1>Connexio WebSocket fieri non potuit.</h1>
+        <p>
+            Miraishi nexu WebSocket eget ut cum aliis utentibus coniungatur, sed
+            id non potuit. Conare alio instrumento uti aut adminstratorem huius
+            paginae consule.
+        </p>
+    </div>
+    <div id="broadcaster-disconnected" class="popup hidden">
+        <h1>Praebitor discessit.</h1>
+    </div>
+    <div id="click-to-share" class="popup clickable hidden">
+        <h1>Preme usquam ut scrinium communices.</h1>
+        <p>Miraishi est inceptum fons apertus. Fons <a href="https://github.com/nixietab/miraishi"
+                target="_blank">hic</a> est.</p>
+    </div>
+    <video id="stream" autoplay="autoplay" muted="muted" controls="controls" playsinline="playsinline">
+        <div class="popup">
+            <h1>Pittacia videndi (video tags) non sustinentur.</h1>
+            <p>
+                Miraishi auxilio pittaciorum videndi eget, sed navigatrum tuum id non
+                praebet. Utere navigatro quod pittacia videndi sustinet.
+            </p>
+        </div>
+    </video>
+</body>
+
+</html>

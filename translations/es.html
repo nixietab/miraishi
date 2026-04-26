@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Miraishi</title>
+    <meta name="description" content="Compartir pantalla de forma sencilla" />
+    <meta name="application-name" content="Miraishi" />
+    <meta name="language" content="es" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="./styles.css" rel="stylesheet" />
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <script type="text/javascript" src="./miraishi.js"></script>
+</head>
+
+<body>
+    <noscript>
+        <div class="popup">
+            <h1>JavaScript no es compatible o no está habilitado.</h1>
+            <p>
+                Miraishi necesita JavaScript, pero tu navegador no lo permite.
+                Usa un navegador compatible con JavaScript y asegúrate de que esté habilitado.
+            </p>
+        </div>
+    </noscript>
+    <div id="access-denied" class="popup hidden">
+        <h1>Has denegado el acceso a tu pantalla.</h1>
+        <p>
+            Miraishi necesita acceso a tu pantalla para poder compartirla, pero
+            denegaste el acceso. Intenta recargar esta página y permite el acceso
+            cuando tu navegador lo solicite.
+        </p>
+    </div>
+    <div id="screensharing-not-supported" class="popup hidden">
+        <h1>La compartición de pantalla no es compatible o no está habilitada.</h1>
+        <p>
+            Miraishi no puede compartir tu pantalla porque tu navegador no lo
+            permite o no está habilitado. Usa un navegador compatible.
+        </p>
+    </div>
+    <div id="websockets-not-supported" class="popup hidden">
+        <h1>WebSocket no es compatible o no está habilitado.</h1>
+        <p>
+            Miraishi necesita soporte para WebSocket. Usa un navegador compatible.
+        </p>
+    </div>
+    <div id="webrtc-not-supported" class="popup hidden">
+        <h1>WebRTC no es compatible o no está habilitado.</h1>
+        <p>
+            Miraishi necesita soporte para WebRTC. Usa un navegador compatible.
+        </p>
+    </div>
+    <div id="mediastream-not-supported" class="popup hidden">
+        <h1>MediaStream no es compatible o no está habilitado.</h1>
+        <p>
+            Miraishi necesita soporte para MediaStream. Usa un navegador compatible.
+        </p>
+    </div>
+    <div id="websocket-connect-failed" class="popup hidden">
+        <h1>No se pudo establecer la conexión WebSocket.</h1>
+        <p>
+            Miraishi necesita una conexión WebSocket para conectarse con otros usuarios.
+            Intenta usar otro dispositivo o contacta al administrador.
+        </p>
+    </div>
+    <div id="broadcaster-disconnected" class="popup hidden">
+        <h1>El emisor se ha desconectado.</h1>
+    </div>
+    <div id="click-to-share" class="popup clickable hidden">
+        <h1>Haz clic en cualquier lugar para compartir tu pantalla.</h1>
+        <p>Miraishi es un proyecto de código abierto. El código fuente está <a
+                href="https://github.com/nixietab/miraishi" target="_blank">aquí</a>.</p>
+    </div>
+    <video id="stream" autoplay="autoplay" muted="muted" controls="controls" playsinline="playsinline">
+        <div class="popup">
+            <h1>Las etiquetas de video no son compatibles.</h1>
+            <p>
+                Tu navegador no soporta etiquetas de video.
+            </p>
+        </div>
+    </video>
+</body>
+
+</html>
