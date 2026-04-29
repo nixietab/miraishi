@@ -13,6 +13,7 @@ If you have Docker installed, you can get Miraishi running in seconds:
 ```bash
 git clone https://github.com/nixietab/miraishi
 cd miraishi
+./setupconfig.sh
 ./rebuild.sh
 ```
 
@@ -44,7 +45,19 @@ If you prefer to run Miraishi directly on your host machine, ensure you have **G
 
 ## Configuration
 
-Before deploying to production, edit `config.json` to set your domain and security settings:
+Before deploying to production, you need to set your domain and security settings. **We provide a convenient setup script that automates this process for you.**
+
+### Using the Setup Script (Recommended)
+
+Run the included setup script to automatically configure your domain, connection limits, and generate secure keys for WebRTC:
+
+```bash
+./setupconfig.sh
+```
+
+### Manual Configuration
+
+Alternatively, you can manually edit `config.json`:
 
 ```json
 {
@@ -52,22 +65,28 @@ Before deploying to production, edit `config.json` to set your domain and securi
     "realm": "miraishi",
     "turn_user": "miraishi",
     "turn_pass": "YOUR_STRONG_PASSWORD",
-    "public_domain": "yourdomain.com"
+    "turn_secret": "YOUR_HMAC_SECRET",
+    "public_domain": "yourdomain.com",
+    "max_rooms": 100,
+    "max_viewers_per_room": 200
 }
 ```
 
+- **`turn_secret`**: (Recommended) Provide a strong secret here and configure `turnserver.conf` with `--use-auth-secret`. This enables ephemeral, time-limited credentials, preventing abuse of your TURN server. If omitted, Miraishi falls back to the static `turn_pass`.
+
+
 > **IMPORTANT**
-> Ensure that `turn_pass` in `config.json` matches the credentials in `turnserver.conf`.
+> Ensure that `turn_pass` (or `turn_secret` if using ephemeral credentials) in `config.json` matches the credentials in `turnserver.conf`.
 
 ## Production Setup
 
-For production, it is you would need to use a reverse proxy like Nginx. We provide an example site [nginx.conf](nginx.conf) that handles SSL termination and WebSocket support.
+For production, you would need to use a reverse proxy like Nginx. We provide an example site [nginx.conf](nginx.conf) that handles SSL termination and WebSocket support.
 
 ### Ports Configuration
 
-To ensure peer-to-peer connections work reliably, you must open the following ports in your hosting platform:
+You must open the following ports in your server:
 
-- **Signaling & Connectivity (STUN/TURN)**: `3478` (TCP and UDP)
+- **Signaling and Connectivity (STUN/TURN)**: `3478` (TCP and UDP)
 - **Front End (HTTP/HTTPS)**: `80`, `443` (TCP)
 - **UDP Media Relay Range**: `50000-51000` (UDP)
 
