@@ -2,6 +2,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -17,14 +20,24 @@ import (
 	"golang.org/x/text/language"
 )
 
+const (
+	writeWait      = 10 * time.Second
+	pongWait       = 60 * time.Second
+	pingPeriod     = (pongWait * 9) / 10
+	maxMessageSize = 512 * 1024
+)
+
 // Configuration
 
 type Config struct {
-	Port         int    `json:"port"`
-	Realm        string `json:"realm"`
-	TurnUser     string `json:"turn_user"`
-	TurnPass     string `json:"turn_pass"`
-	PublicDomain string `json:"public_domain"`
+	Port              int    `json:"port"`
+	Realm             string `json:"realm"`
+	TurnUser          string `json:"turn_user"`
+	TurnPass          string `json:"turn_pass"`
+	TurnSecret        string `json:"turn_secret"`
+	PublicDomain      string `json:"public_domain"`
+	MaxRooms          int    `json:"max_rooms"`
+	MaxViewersPerRoom int    `json:"max_viewers_per_room"`
 }
 
 var globalConfig Config
@@ -34,16 +47,25 @@ func loadConfig() {
 	if err != nil {
 		log.Println("Warning: Could not read config.json, using defaults")
 		globalConfig = Config{
-			Port:         8080,
-			Realm:        "miraishi",
-			TurnUser:     "miraishi",
-			TurnPass:     "MUST_CHANGE_FOR_SECURITY",
-			PublicDomain: "localhost",
+			Port:              8080,
+			Realm:             "miraishi",
+			TurnUser:          "miraishi",
+			TurnPass:          "MUST_CHANGE_FOR_SECURITY",
+			TurnSecret:        "",
+			PublicDomain:      "localhost",
+			MaxRooms:          100,
+			MaxViewersPerRoom: 200,
 		}
 		return
 	}
 	if err := json.Unmarshal(data, &globalConfig); err != nil {
 		log.Fatalf("Error parsing config.json: %v", err)
+	}
+	if globalConfig.MaxRooms == 0 {
+		globalConfig.MaxRooms = 100
+	}
+	if globalConfig.MaxViewersPerRoom == 0 {
+		globalConfig.MaxViewersPerRoom = 200
 	}
 }
 
@@ -75,6 +97,25 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+// SafeConn is a thread-safe wrapper for websocket.Conn
+type SafeConn struct {
+	Conn *websocket.Conn
+	mu   sync.Mutex
+}
+
+func (sc *SafeConn) WriteMessage(messageType int, data []byte) error {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	sc.Conn.SetWriteDeadline(time.Now().Add(writeWait))
+	return sc.Conn.WriteMessage(messageType, data)
+}
+
+func (sc *SafeConn) Close() error {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	return sc.Conn.Close()
+}
+
 // Signaling types
 
 type Message struct {
@@ -87,17 +128,29 @@ type Message struct {
 
 type Room struct {
 	ID          string
-	Broadcaster *websocket.Conn
-	Viewers     map[string]*websocket.Conn
+	Broadcaster *SafeConn
+	Viewers     map[string]*SafeConn
 	Counter     int
 	Lock        sync.Mutex
 	OnClose     func()
+	Closed      bool
 }
 
 // Room logic
 
-func (r *Room) AddViewer(conn *websocket.Conn) {
+func (r *Room) AddViewer(conn *SafeConn) {
 	r.Lock.Lock()
+	if r.Closed {
+		r.Lock.Unlock()
+		conn.Close()
+		return
+	}
+	if len(r.Viewers) >= globalConfig.MaxViewersPerRoom {
+		r.Lock.Unlock()
+		log.Printf("[FAILED] Room %s: Viewer limit reached", r.ID)
+		conn.Close()
+		return
+	}
 	id := fmt.Sprintf("%d", r.Counter)
 	r.Counter++
 	r.Viewers[id] = conn
@@ -111,7 +164,7 @@ func (r *Room) AddViewer(conn *websocket.Conn) {
 	go r.handleViewer(id, conn)
 }
 
-func (r *Room) handleViewer(id string, conn *websocket.Conn) {
+func (r *Room) handleViewer(id string, conn *SafeConn) {
 	defer func() {
 		r.Lock.Lock()
 		delete(r.Viewers, id)
@@ -121,8 +174,22 @@ func (r *Room) handleViewer(id string, conn *websocket.Conn) {
 		r.broadcastToBroadcaster(Message{Type: "viewerdisconnected", ViewerID: id})
 	}()
 
+	conn.Conn.SetReadLimit(maxMessageSize)
+	conn.Conn.SetReadDeadline(time.Now().Add(pongWait))
+	conn.Conn.SetPongHandler(func(string) error { conn.Conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+
+	go func() {
+		ticker := time.NewTicker(pingPeriod)
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+		}
+	}()
+
 	for {
-		_, payload, err := conn.ReadMessage()
+		_, payload, err := conn.Conn.ReadMessage()
 		if err != nil {
 			break
 		}
@@ -151,8 +218,22 @@ func (r *Room) handleBroadcaster() {
 
 	r.sendMessage(r.Broadcaster, Message{Type: "broadcast"})
 
+	r.Broadcaster.Conn.SetReadLimit(maxMessageSize)
+	r.Broadcaster.Conn.SetReadDeadline(time.Now().Add(pongWait))
+	r.Broadcaster.Conn.SetPongHandler(func(string) error { r.Broadcaster.Conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+
+	go func() {
+		ticker := time.NewTicker(pingPeriod)
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := r.Broadcaster.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+		}
+	}()
+
 	for {
-		_, payload, err := r.Broadcaster.ReadMessage()
+		_, payload, err := r.Broadcaster.Conn.ReadMessage()
 		if err != nil {
 			break
 		}
@@ -187,6 +268,11 @@ func (r *Room) handleBroadcaster() {
 
 func (r *Room) Close() {
 	r.Lock.Lock()
+	if r.Closed {
+		r.Lock.Unlock()
+		return
+	}
+	r.Closed = true
 	defer r.Lock.Unlock()
 
 	log.Printf("[OK] Room %s: Closed", r.ID)
@@ -201,7 +287,7 @@ func (r *Room) Close() {
 	}
 }
 
-func (r *Room) sendMessage(conn *websocket.Conn, msg Message) {
+func (r *Room) sendMessage(conn *SafeConn, msg Message) {
 	data, _ := json.Marshal(msg)
 	conn.WriteMessage(websocket.TextMessage, data)
 }
@@ -219,6 +305,9 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	conn.SetReadLimit(maxMessageSize)
+	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+
 	_, payload, err := conn.ReadMessage()
 	if err != nil {
 		conn.Close()
@@ -226,20 +315,27 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var msg Message
-	if err := json.Unmarshal(payload, &msg); err != nil || msg.Type != "join" || msg.RoomID == "" {
+	if err := json.Unmarshal(payload, &msg); err != nil || msg.Type != "join" || msg.RoomID == "" || len(msg.RoomID) > 100 {
 		conn.Close()
 		return
 	}
 
 	roomID := strings.ToLower(msg.RoomID)
+	safeConn := &SafeConn{Conn: conn}
 
 	state.roomLock.Lock()
 	room, ok := state.rooms[roomID]
 	if !ok {
+		if len(state.rooms) >= globalConfig.MaxRooms {
+			state.roomLock.Unlock()
+			log.Printf("[FAILED] Room limit reached, rejecting %s", roomID)
+			safeConn.Close()
+			return
+		}
 		room = &Room{
 			ID:          roomID,
-			Broadcaster: conn,
-			Viewers:     make(map[string]*websocket.Conn),
+			Broadcaster: safeConn,
+			Viewers:     make(map[string]*SafeConn),
 			OnClose: func() {
 				state.roomLock.Lock()
 				delete(state.rooms, roomID)
@@ -252,7 +348,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		go room.handleBroadcaster()
 	} else {
 		state.roomLock.Unlock()
-		room.AddViewer(conn)
+		room.AddViewer(safeConn)
 	}
 }
 
@@ -297,14 +393,32 @@ func fetchTranslations() ([][]byte, language.Matcher) {
 	return fileCache, language.NewMatcher(languageTags)
 }
 
+func generateTURNCredentials(secret string, user string) (string, string) {
+	timestamp := time.Now().Add(24 * time.Hour).Unix()
+	username := fmt.Sprintf("%d:%s", timestamp, user)
+
+	mac := hmac.New(sha1.New, []byte(secret))
+	mac.Write([]byte(username))
+	password := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+
+	return username, password
+}
+
 func handleConfig(w http.ResponseWriter, r *http.Request) {
+	username := globalConfig.TurnUser
+	password := globalConfig.TurnPass
+
+	if globalConfig.TurnSecret != "" {
+		username, password = generateTURNCredentials(globalConfig.TurnSecret, globalConfig.TurnUser)
+	}
+
 	iceConfig := map[string]interface{}{
 		"iceServers": []map[string]interface{}{
 			{"urls": "stun:" + globalConfig.PublicDomain},
 			{
 				"urls":       "turn:" + globalConfig.PublicDomain,
-				"username":   globalConfig.TurnUser,
-				"credential": globalConfig.TurnPass,
+				"username":   username,
+				"credential": password,
 			},
 		},
 		"iceCandidatePoolSize": 8,
