@@ -135,6 +135,10 @@ class Room {
                 return;
             }
             const client = isBroadcaster ? await this.setupBroadcaster() : await this.setupViewer();
+            this.client = client;
+            if (!this.statsForNerds) {
+                this.statsForNerds = new StatsForNerds(this);
+            }
             this.webSocket.onmessage = (e) => client.handleMessage(JSON.parse(e.data));
             if (isBroadcaster) await this.sendMessage({ type: "requestviewers" });
             this.setDocumentTitle();
